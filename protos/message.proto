@@ -708,6 +708,9 @@ message TestDelay {
 message PublicKey {
   bytes asymmetric_value = 1;
   bytes symmetric_value = 2;
+  // FGTW fleet handshake: VSF-encoded {device_pubkey, sig(client_box_pk || host_sign_pk)}.
+  // Absent for vanilla peers; peers that don't understand it ignore it.
+  bytes fgtw = 3;
 }
 
 message SignedId { bytes id = 1; }

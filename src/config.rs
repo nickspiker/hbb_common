@@ -1139,6 +1139,21 @@ impl Config {
         config.key_pair
     }
 
+    /// Overwrite the identity keypair (sk, pk) and persist synchronously.
+    /// Used by the fgtw fleet integration to seed RustDesk's identity from the
+    /// fleet device key at enrollment. Encrypted config fields are keyed off the
+    /// machine uuid (see `symmetric_crypt`), not the keypair, so they survive the swap.
+    pub fn set_key_pair(key_pair: KeyPair) {
+        {
+            // same lock order as the store thread in get_key_pair: CONFIG only,
+            // KEY_PAIR is never held across store() (store's decrypt path re-enters key loading)
+            let mut config = CONFIG.write().unwrap();
+            config.key_pair = key_pair.clone();
+            config.store();
+        }
+        *KEY_PAIR.lock().unwrap() = Some(key_pair);
+    }
+
     pub fn get_cached_pk() -> Option<Vec<u8>> {
         KEY_PAIR.lock().unwrap().clone().map(|k| k.1)
     }
