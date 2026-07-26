@@ -2385,7 +2385,9 @@ impl UserDefaultConfig {
                 self.get_string(key, "scrollauto", vec!["scrolledge", "scrollbar"])
             }
             keys::OPTION_IMAGE_QUALITY => {
-                self.get_string(key, "balanced", vec!["best", "low", "custom"])
+                // fgtw default "best": fleet sessions are LAN/personal and often for reading
+                // text (coding), where the lossy-codec artifacts of "balanced" hurt most.
+                self.get_string(key, "best", vec!["balanced", "low", "custom"])
             }
             keys::OPTION_CODEC_PREFERENCE => {
                 self.get_string(key, "auto", vec!["vp8", "vp9", "av1", "h264", "h265"])
