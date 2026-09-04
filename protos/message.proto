@@ -696,6 +696,11 @@ message OptionMessage {
   BoolOption disable_camera = 17;
   BoolOption terminal_persistent = 18;
   BoolOption show_my_cursor = 19;
+  // fgtw fork: the guest's window size, stated at LOGIN so the host reaches that size before
+  // the video service starts. Without it the host streams frames at whatever size it happens
+  // to be, the guest draws them 1:1 (tiny), and the resolution only follows afterwards.
+  // Upstream retired field 13 for this; 20 is a fresh number, so no wire ambiguity.
+  Resolution custom_resolution = 20;
 }
 
 message TestDelay {
