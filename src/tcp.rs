@@ -86,28 +86,38 @@ impl FramedStream {
         local_addr: Option<SocketAddr>,
         ms_timeout: u64,
     ) -> ResultType<Self> {
+        let mut last_err: Option<String> = None;
         for remote_addr in lookup_host(&remote_addr).await? {
             let local = if let Some(addr) = local_addr {
                 addr
             } else {
                 crate::config::Config::get_any_listen_addr(remote_addr.is_ipv4())
             };
-            if let Ok(socket) = new_socket(local, true) {
-                if let Ok(Ok(stream)) =
-                    super::timeout(ms_timeout, socket.connect(remote_addr)).await
-                {
-                    stream.set_nodelay(true).ok();
-                    let addr = stream.local_addr()?;
-                    return Ok(Self(
-                        Framed::new(DynTcpStream(Box::new(stream)), BytesCodec::new()),
-                        addr,
-                        None,
-                        0,
-                    ));
-                }
+            // Keep WHY each attempt failed. This used to swallow both errors, so a refused
+            // port, an unreachable route, and an OS privacy block all surfaced as one blank
+            // "Failed to connect" — three very different problems with three different fixes.
+            match new_socket(local, true) {
+                Ok(socket) => match super::timeout(ms_timeout, socket.connect(remote_addr)).await {
+                    Ok(Ok(stream)) => {
+                        stream.set_nodelay(true).ok();
+                        let addr = stream.local_addr()?;
+                        return Ok(Self(
+                            Framed::new(DynTcpStream(Box::new(stream)), BytesCodec::new()),
+                            addr,
+                            None,
+                            0,
+                        ));
+                    }
+                    Ok(Err(e)) => last_err = Some(format!("connect: {e}")),
+                    Err(_) => last_err = Some(format!("timed out after {ms_timeout}ms")),
+                },
+                Err(e) => last_err = Some(format!("socket bind {local}: {e}")),
             }
         }
-        bail!(format!("Failed to connect to {remote_addr}"));
+        match last_err {
+            Some(e) => bail!("Failed to connect to {remote_addr}: {e}"),
+            None => bail!("Failed to connect to {remote_addr}: no address resolved"),
+        }
     }
 
     pub async fn connect<'t, T>(
